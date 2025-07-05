@@ -588,8 +588,8 @@ fun VideoPlayerCore(
             // —— 点赞 ——  （最下）
             IconButton(onClick = onLike) {
                 Icon(
-                    imageVector = if (videoItem.iscollected)
-                        Icons.Filled.Star else Icons.Outlined.StarBorder,
+                    imageVector = if (videoItem.isliked)
+                        Icons.Filled.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = "点赞",
                     tint = if (videoItem.isliked) Color.Red else Color.White,
                     modifier = Modifier.size(36.dp)
@@ -1405,8 +1405,10 @@ data class Strings(
                                             }
                                        },
 
-                                   // ③ 点赞 / 取消赞
-                                  onToggleLike = {  }
+                                    // ③ 点赞 / 取消赞
+                                   onToggleLike = {
+                                       toggleLike(item, currentUserId)
+                                   }
                                      )
         }
 
@@ -1729,10 +1731,29 @@ fun postCommentToServer(ctx: Context, videoUrl: String, content: String) {
     Toast.makeText(ctx, "已发表：$content", Toast.LENGTH_SHORT).show()
 }
 
-// 点赞
-fun likeVideo(videoUrl: String) {
-    // TODO 调用点赞 API，或本地+1
-    Log.d("LIKE", "liked $videoUrl")
+// 点赞/取消点赞
+fun toggleLike(video: VideoItem, userId: Int, onOk: () -> Unit = {}) {
+    OkHttpClient().newCall(
+        Request.Builder()
+            .url("https://thesanche.org/api/video/like")
+            .post(
+                FormBody.Builder()
+                    .add("video", video.url)
+                    .add("uid", userId.toString())
+                    .build()
+            )
+            .build()
+    ).enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) { onOk() }
+        override fun onResponse(call: Call, resp: Response) {
+            if (resp.isSuccessful) {
+                video.isliked = !video.isliked
+                if (video.isliked) video.likecount++ else if (video.likecount > 0) video.likecount--
+            }
+            onOk()
+        }
+    })
+    Log.d("LIKE", "video.url=${video.url}, userId=$userId")
 }
 fun sendComment(
     video: VideoItem,
